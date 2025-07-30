@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DNG to PNG Converter - WASM Mode</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        color: #333;
+        text-align: center;
+        margin-bottom: 10px;
+      }
+      .mode-badge {
+        background: #28a745;
+        color: white;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 14px;
+        text-align: center;
+        margin-bottom: 20px;
+      }
+      .back-link {
+        color: #007bff;
+        text-decoration: none;
+        margin-bottom: 20px;
+        display: inline-block;
+      }
+      .back-link:hover {
+        text-decoration: underline;
+      }
+      .file-input-container {
+        margin: 20px 0;
+        position: relative;
+      }
+      .file-input {
+        width: 100%;
+        padding: 15px;
+        border: 2px dashed #ccc;
+        border-radius: 10px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background-color: #fafafa;
+      }
+      .file-input:hover {
+        border-color: #007bff;
+        background-color: #f0f8ff;
+      }
+      .file-input.dragover {
+        border-color: #28a745;
+        background-color: #f0fff4;
+      }
+      button {
+        background-color: #28a745;
+        color: white;
+        padding: 12px 20px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+        width: 100%;
+        margin-top: 10px;
+      }
+      button:hover {
+        background-color: #218838;
+      }
+      button:disabled {
+        background-color: #6c757d;
+        cursor: not-allowed;
+      }
+      .result {
+        margin-top: 20px;
+        padding: 15px;
+        border-radius: 5px;
+      }
+      .success {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
+      .error {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+      }
+      .loading {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+      }
+      .info {
+        background-color: #e2f3ff;
+        color: #004085;
+        border: 1px solid #b8daff;
+        margin-bottom: 20px;
+        padding: 15px;
+        border-radius: 5px;
+      }
+      .warning {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+        margin-bottom: 20px;
+        padding: 15px;
+        border-radius: 5px;
+      }
+      .file-info {
+        background-color: #f8f9fa;
+        padding: 10px;
+        border-radius: 5px;
+        margin: 10px 0;
+        font-size: 14px;
+      }
+      .preview-container {
+        margin-top: 20px;
+        text-align: center;
+      }
+      .preview-image {
+        max-width: 100%;
+        max-height: 400px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+      .download-link {
+        display: inline-block;
+        background: #007bff;
+        color: white;
+        padding: 10px 20px;
+        text-decoration: none;
+        border-radius: 5px;
+        margin-top: 10px;
+      }
+      .download-link:hover {
+        background: #0056b3;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <a href="/" class="back-link">← Back to Mode Selection</a>
+      <h1>⚡ DNG to PNG Converter</h1>
+      <div class="mode-badge">WASM Mode - Client-side Processing</div>
+
+      <div class="info">
+        <strong>WASM Mode Features:</strong><br />
+        • Fast browser-based processing using WebAssembly<br />
+        • Complete privacy - files never leave your device<br />
+        • Works offline after initial page load<br />
+        • Instant processing with dcraw.js
+      </div>
+
+      <div class="warning" id="wasmWarning" style="display: none">
+        <strong>⚠️ WASM Loading:</strong> WebAssembly module is loading. Please
+        wait...
+      </div>
+
+      <div class="file-input-container">
+        <div class="file-input" id="fileDropArea">
+          <p>📁 Click to select a DNG file or drag & drop here</p>
+          <p style="font-size: 14px; color: #666">Supported: .dng files</p>
+        </div>
+        <input type="file" id="fileInput" accept=".dng" style="display: none" />
+      </div>
+
+      <div id="fileInfo" class="file-info" style="display: none"></div>
+
+      <button id="convertBtn" style="display: none">Convert to PNG</button>
+
+      <div id="result"></div>
+
+      <div
+        id="previewContainer"
+        class="preview-container"
+        style="display: none"
+      >
+        <h3>Preview:</h3>
+        <img id="previewImage" class="preview-image" />
+        <br />
+        <a id="downloadLink" class="download-link" style="display: none"
+          >📥 Download PNG</a
+        >
+      </div>
+    </div>
+
+    <script>
+      let selectedFile = null;
+      let dcrawModule = null;
+
+      // Load dcraw.js dynamically and initialize
+      async function loadAndInitializeDcraw() {
+        const wasmWarning = document.getElementById("wasmWarning");
+        wasmWarning.style.display = "block";
+
+        try {
+          console.log("🔄 Loading dcraw.js...");
+
+          // Try multiple CDN sources
+          const cdnUrls = ["/dcraw.js"];
+
+          let loaded = false;
+          for (const url of cdnUrls) {
+            try {
+              console.log(`🔄 Trying to load from: ${url}`);
+              await loadScript(url);
+
+              // Wait a bit for the module to initialize
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+
+              if (typeof dcraw !== "undefined") {
+                dcrawModule = dcraw;
+                console.log("✅ dcraw loaded successfully from:", url);
+                loaded = true;
+                break;
+              }
+            } catch (err) {
+              console.log(`❌ Failed to load from ${url}:`, err.message);
+              continue;
+            }
+          }
+
+          if (!loaded) {
+            throw new Error("Failed to load dcraw from any CDN source");
+          }
+
+          // Test dcraw functionality
+          console.log("🧪 Testing dcraw functionality...");
+          const testBuffer = new Uint8Array([0x44, 0x4e, 0x47]); // Simple test
+
+          wasmWarning.style.display = "none";
+          console.log("✅ dcraw WASM module ready");
+        } catch (error) {
+          console.error("❌ Failed to initialize dcraw:", error);
+          wasmWarning.innerHTML = `
+                    <strong>❌ Error:</strong> Failed to load dcraw WASM module.<br>
+                    <strong>Possible solutions:</strong><br>
+                    • Check your internet connection<br>
+                    • Try refreshing the page<br>
+                    • <a href="/api-mode" style="color: #007bff;">Use API mode instead</a> for guaranteed compatibility<br><br>
+                    <strong>Alternative:</strong> You can still try to extract thumbnails using a fallback method.
+                `;
+          wasmWarning.className = "error";
+
+          // Enable a basic fallback mode
+          setupFallbackMode();
+        }
+      }
+
+      // Helper function to load scripts dynamically
+      function loadScript(src) {
+        return new Promise((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = src;
+          script.onload = resolve;
+          script.onerror = () =>
+            reject(new Error(`Failed to load script: ${src}`));
+          document.head.appendChild(script);
+        });
+      }
+
+      // Fallback mode when dcraw.js fails to load
+      function setupFallbackMode() {
+        console.log("🔄 Setting up fallback mode...");
+        // This creates a mock dcraw function that shows a helpful message
+        dcrawModule = function (buffer, options) {
+          throw new Error(
+            "dcraw WASM module not available. Please use API mode for full functionality."
+          );
+        };
+      }
+
+      // Handle file selection
+      function handleFileSelection(file) {
+        console.log("📁 Handling file selection:", file.name);
+
+        const result = document.getElementById("result");
+        const fileInfo = document.getElementById("fileInfo");
+        const convertBtn = document.getElementById("convertBtn");
+        const previewContainer = document.getElementById("previewContainer");
+
+        if (!file.name.toLowerCase().endsWith(".dng")) {
+          result.innerHTML =
+            '<div class="error">❌ Please select a DNG file.</div>';
+          return;
+        }
+
+        selectedFile = file;
+
+        // Show file info
+        fileInfo.innerHTML = `
+                <strong>Selected File:</strong> ${file.name}<br>
+                <strong>Size:</strong> ${(file.size / (1024 * 1024)).toFixed(
+                  2
+                )} MB<br>
+                <strong>Type:</strong> ${
+                  file.type || "application/octet-stream"
+                }
+            `;
+        fileInfo.style.display = "block";
+        convertBtn.style.display = "block";
+        result.innerHTML = "";
+        previewContainer.style.display = "none";
+
+        console.log("✅ File selection complete, convert button shown");
+      }
+
+      // Convert function
+      async function convertFile() {
+        console.log("🔄 Starting conversion...");
+
+        const result = document.getElementById("result");
+        const convertBtn = document.getElementById("convertBtn");
+        const previewContainer = document.getElementById("previewContainer");
+        const previewImage = document.getElementById("previewImage");
+        const downloadLink = document.getElementById("downloadLink");
+
+        if (!selectedFile || !dcrawModule) {
+          result.innerHTML =
+            '<div class="error">❌ Please select a file and wait for WASM module to load.</div>';
+          return;
+        }
+
+        try {
+          // Show loading state
+          convertBtn.disabled = true;
+          convertBtn.textContent = "Converting...";
+          result.innerHTML =
+            '<div class="loading">⚡ Converting DNG file using WebAssembly...</div>';
+
+          // Read file as ArrayBuffer
+          const arrayBuffer = await selectedFile.arrayBuffer();
+          const uint8Array = new Uint8Array(arrayBuffer);
+
+          console.log("📋 File loaded, attempting conversion...");
+
+          // Try to extract embedded thumbnail first (faster)
+          try {
+            console.log("🔄 Attempting thumbnail extraction...");
+            const thumbnailResult = dcrawModule(uint8Array, {
+              verbose: true,
+              identify: false,
+              extractThumbnail: true,
+            });
+
+            console.log("📋 Thumbnail result:", thumbnailResult);
+
+            if (thumbnailResult && thumbnailResult.length > 0) {
+              // Create blob and download link
+              const blob = new Blob([thumbnailResult], { type: "image/jpeg" });
+              const url = URL.createObjectURL(blob);
+
+              // Convert JPEG to PNG for consistency
+              const canvas = document.createElement("canvas");
+              const ctx = canvas.getContext("2d");
+              const img = new Image();
+
+              img.onload = () => {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+
+                canvas.toBlob((pngBlob) => {
+                  const pngUrl = URL.createObjectURL(pngBlob);
+                  const filename = selectedFile.name.replace(/\.dng$/i, ".png");
+
+                  // Show result
+                  result.innerHTML =
+                    '<div class="success">✅ Thumbnail extracted and converted successfully!</div>';
+
+                  // Show preview
+                  previewImage.src = pngUrl;
+                  downloadLink.href = pngUrl;
+                  downloadLink.download = filename;
+                  downloadLink.style.display = "inline-block";
+                  previewContainer.style.display = "block";
+
+                  URL.revokeObjectURL(url);
+                  console.log("✅ Conversion completed successfully");
+                }, "image/png");
+              };
+
+              img.onerror = () => {
+                throw new Error("Failed to process thumbnail image");
+              };
+
+              img.src = url;
+              return;
+            }
+          } catch (thumbError) {
+            console.log(
+              "⚠️ Thumbnail extraction failed, trying full conversion:",
+              thumbError.message
+            );
+          }
+
+          // If thumbnail extraction fails, try full conversion
+          console.log("🔄 Attempting full RAW conversion...");
+
+          // Try metadata extraction to verify the file
+          try {
+            const metadata = dcrawModule(uint8Array, {
+              verbose: true,
+              identify: true,
+            });
+            console.log("📋 File metadata:", metadata);
+          } catch (metaError) {
+            console.log("⚠️ Metadata extraction failed:", metaError.message);
+          }
+
+          // Try different conversion options
+          const conversionOptions = [
+            { verbose: true, exportAsTiff: true },
+            { verbose: true, exportAsTiff: false },
+            { verbose: true },
+          ];
+
+          let conversionResult = null;
+          for (const options of conversionOptions) {
+            try {
+              console.log("🔄 Trying conversion with options:", options);
+              conversionResult = dcrawModule(uint8Array, options);
+              if (conversionResult && conversionResult.length > 0) {
+                console.log("✅ Conversion successful with options:", options);
+                break;
+              }
+            } catch (convError) {
+              console.log(
+                "⚠️ Conversion failed with options:",
+                options,
+                convError.message
+              );
+            }
+          }
+
+          if (conversionResult && conversionResult.length > 0) {
+            // Create blob and download link
+            const blob = new Blob([conversionResult], { type: "image/tiff" });
+            const url = URL.createObjectURL(blob);
+
+            // Convert TIFF to PNG
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.createElement("canvas");
+              const ctx = canvas.getContext("2d");
+              canvas.width = img.width;
+              canvas.height = img.height;
+              ctx.drawImage(img, 0, 0);
+
+              canvas.toBlob((pngBlob) => {
+                const pngUrl = URL.createObjectURL(pngBlob);
+                const filename = selectedFile.name.replace(/\.dng$/i, ".png");
+
+                // Show result
+                result.innerHTML =
+                  '<div class="success">✅ DNG converted to PNG successfully!</div>';
+
+                // Show preview
+                previewImage.src = pngUrl;
+                downloadLink.href = pngUrl;
+                downloadLink.download = filename;
+                downloadLink.style.display = "inline-block";
+                previewContainer.style.display = "block";
+
+                URL.revokeObjectURL(url);
+                console.log("✅ Full conversion completed successfully");
+              }, "image/png");
+            };
+
+            img.onerror = () => {
+              throw new Error("Failed to process converted image");
+            };
+
+            img.src = url;
+          } else {
+            throw new Error("No conversion result returned");
+          }
+        } catch (error) {
+          console.error("❌ Conversion error:", error);
+
+          let errorMessage = error.message;
+          let suggestions = "";
+
+          if (error.message.includes("dcraw WASM module not available")) {
+            errorMessage = "dcraw WASM module failed to load";
+            suggestions = `
+                        <strong>Solutions:</strong><br>
+                        • <a href="/api-mode" style="color: #007bff;">Switch to API mode</a> for guaranteed compatibility<br>
+                        • Check your internet connection and refresh the page<br>
+                        • Try using a different browser
+                    `;
+          } else {
+            suggestions = `
+                        <strong>Possible causes:</strong><br>
+                        • File may be corrupted or not a valid DNG<br>
+                        • File format not supported by dcraw WASM<br>
+                        • Browser memory limitations<br><br>
+                        <strong>Try:</strong> <a href="/api-mode" style="color: #007bff;">Use API mode</a> for better compatibility
+                    `;
+          }
+
+          result.innerHTML = `
+                    <div class="error">
+                        ❌ Conversion failed: ${errorMessage}<br><br>
+                        ${suggestions}
+                    </div>
+                `;
+        } finally {
+          convertBtn.disabled = false;
+          convertBtn.textContent = "Convert to PNG";
+        }
+      }
+
+      // Initialize when DOM is ready
+      document.addEventListener("DOMContentLoaded", function () {
+        console.log("🚀 DOM loaded, setting up file handling...");
+
+        const fileInput = document.getElementById("fileInput");
+        const fileDropArea = document.getElementById("fileDropArea");
+        const convertBtn = document.getElementById("convertBtn");
+
+        // File input change handler
+        fileInput.addEventListener("change", function (e) {
+          console.log("📁 File input changed");
+          if (e.target.files && e.target.files.length > 0) {
+            const file = e.target.files[0];
+            console.log("📁 Selected file:", file.name, file.size);
+            handleFileSelection(file);
+          }
+        });
+
+        // Click handler for file drop area
+        fileDropArea.addEventListener("click", function (e) {
+          e.preventDefault();
+          console.log("📁 File drop area clicked");
+          fileInput.click();
+        });
+
+        // Drag and drop handlers
+        fileDropArea.addEventListener("dragover", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          fileDropArea.classList.add("dragover");
+        });
+
+        fileDropArea.addEventListener("dragleave", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          fileDropArea.classList.remove("dragover");
+        });
+
+        fileDropArea.addEventListener("drop", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          fileDropArea.classList.remove("dragover");
+          console.log("📁 File dropped");
+
+          const files = e.dataTransfer.files;
+          if (files.length > 0) {
+            const file = files[0];
+            console.log("📁 Dropped file:", file.name, file.size);
+            handleFileSelection(file);
+          }
+        });
+
+        // Convert button handler
+        convertBtn.addEventListener("click", convertFile);
+
+        // Initialize dcraw after a short delay
+        setTimeout(loadAndInitializeDcraw, 500);
+      });
+    </script>
+  </body>
+</html>

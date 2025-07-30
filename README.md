@@ -1,20 +1,27 @@
 # DNG to PNG Converter
 
-A web application that converts DNG (Digital Negative) files to PNG format, implemented in TypeScript.
+A web application that converts DNG (Digital Negative) files to PNG format with two distinct processing modes: API mode for server-side conversion and WASM mode for client-side conversion.
 
-## Features
+## ✨ Two Processing Modes
 
-- 🔄 Convert DNG files to PNG format
-- 🌐 File upload through web interface
-- 📱 Responsive web design
-- ⚡ WASM-based dcraw library
-- 🖼️ High-quality image processing with Sharp library
+### 🌐 API Mode (Server-side)
+- High-quality conversion using dcraw + Sharp libraries
+- Supports large DNG files (up to 50MB)
+- Full RAW processing pipeline
+- Reliable server-side processing
+
+### ⚡ WASM Mode (Client-side)
+- Fast browser-based processing using WebAssembly
+- Complete privacy - files never leave your device
+- Works offline after initial page load
+- Instant processing with dcraw.js
 
 ## Tech Stack
 
 - **Backend**: Node.js + Express + TypeScript
-- **Image Processing**: dcraw (WASM) + Sharp
-- **File Upload**: Multer
+- **API Mode**: dcraw (Node.js) + Sharp
+- **WASM Mode**: dcraw.js (WebAssembly)
+- **File Upload**: Multer (API mode only)
 - **Frontend**: HTML5 + Vanilla JavaScript
 
 ## Installation and Setup
@@ -24,12 +31,19 @@ A web application that converts DNG (Digital Negative) files to PNG format, impl
 npm install
 ```
 
-### 2. Run Development Server
+### 2. Run Development Server (Both Modes)
 ```bash
 npm run dev
 ```
+Access at `http://localhost:3000` and choose your preferred mode.
 
-### 3. Production Build
+### 3. Run API Mode Only
+```bash
+npm run dev:api
+```
+Access API mode directly at `http://localhost:3001`
+
+### 4. Production Build
 ```bash
 npm run build
 npm start
@@ -37,10 +51,19 @@ npm start
 
 ## Usage
 
+### Mode Selection
 1. Open `http://localhost:3000` in your browser
-2. Select a DNG file
-3. Click "Convert to PNG" button
+2. Choose between **API Mode** or **WASM Mode**
+3. Upload your DNG file
 4. Download the converted PNG file
+
+### API Mode Usage
+- Best for: Large files, highest quality conversion
+- Upload DNG file → Server processes → Download PNG
+
+### WASM Mode Usage  
+- Best for: Privacy, speed, offline use
+- Select DNG file → Browser processes → Download PNG
 
 ## API Endpoints
 
@@ -95,19 +118,35 @@ npx ts-node test/create-test-image.ts
 ```
 dng/
 ├── src/
-│   ├── index.ts              # Main server file
-│   └── dng-converter.ts      # DNG conversion logic
+│   ├── index.ts                    # Main server with mode selection
+│   ├── api-mode/
+│   │   ├── index.ts               # Standalone API server
+│   │   ├── server.ts              # API mode router
+│   │   └── dng-converter.ts       # Server-side conversion logic
+│   └── wasm-mode/                 # (Client-side processing via static files)
+├── public/
+│   └── wasm-mode.html             # WASM mode interface
 ├── test/
-│   ├── test-conversion.ts    # Conversion test script
-│   ├── test-dcraw.ts         # dcraw library test
-│   └── create-test-image.ts  # Test image creation
-├── uploads/                  # Temporary storage for uploaded files
-├── test-files/              # Test file storage
-├── dist/                    # Compiled JavaScript files
+│   ├── test-conversion.ts         # Conversion test script
+│   ├── test-dcraw.ts              # dcraw library test
+│   └── create-test-image.ts       # Test image creation
+├── uploads/                       # Temporary storage for uploaded files
+├── test-files/                    # Test file storage
+├── dist/                          # Compiled JavaScript files
 ├── package.json
 ├── tsconfig.json
 └── README.md
 ```
+
+## Available Scripts
+
+- `npm run dev` - Run main server with mode selection (port 3000)
+- `npm run dev:api` - Run API mode only (port 3001)
+- `npm run test-conversion` - Test conversion functionality
+- `npm run test-dcraw` - Test dcraw library
+- `npm run create-test-image` - Create test images
+- `npm run build` - Build for production
+- `npm start` - Start production server
 
 ## Troubleshooting
 

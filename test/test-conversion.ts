@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { convertDngToPng } from '../src/dng-converter';
+import { convertDngToPng } from '../src/api-mode/dng-converter';
 
 async function testDngConversion() {
   console.log('🧪 Testing DNG to PNG conversion...');

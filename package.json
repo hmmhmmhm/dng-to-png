@@ -6,7 +6,10 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "nodemon --exec ts-node src/index.ts",
+    "dev:api": "nodemon --exec ts-node src/api-mode/index.ts",
     "test-conversion": "ts-node test/test-conversion.ts",
+    "test-dcraw": "ts-node test/test-dcraw.ts",
+    "create-test-image": "ts-node test/create-test-image.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
