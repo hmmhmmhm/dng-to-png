@@ -3,7 +3,7 @@ import multer from 'multer';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
-import { convertDngToPng } from './dngConverter';
+import { convertDngToPng } from './dng-converter';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
